@@ -10,7 +10,8 @@ import AddJob from "./pages/AddJob"
 import ManageJobs from "./pages/ManageJobs"
 import ViewApplications from "./pages/ViewApplications"
 import 'quill/dist/quill.snow.css'
-
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
 
@@ -19,6 +20,7 @@ function App() {
   return (
     <div>
       { showRecruiterLogin && <RecruiterLogin/>}
+      <ToastContainer/>
       <Routes>
         <Route path='/' element={<Home/>} />
         <Route path='/apply-job/:id' element={<ApplyJob/>} />

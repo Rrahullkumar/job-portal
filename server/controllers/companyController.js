@@ -60,7 +60,7 @@ export const loginCompany = async(req,res)=>{
     try {
         const company= await Company.findOne({email})
 
-        if (bcrypt.compare(password, company.password)) {
+        if (await bcrypt.compare(password, company.password)) {
             
             res.json({
                 success: true,
