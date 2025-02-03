@@ -1,7 +1,6 @@
 import Job from "../models/job.js"
 
 
-
 //  get all jobs
 export const getJobs = async (req,res) => {
     try {

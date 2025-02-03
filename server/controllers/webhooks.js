@@ -14,6 +14,19 @@ export const clerkWebhooks = async (req, res) => {
       "svix-signature": req.headers["svix-signature"],
     });
 
+    // Handle user creation event //to be tested
+    if (evt.type === 'user.created') {
+      const { id, email_addresses, first_name, last_name, image_url } = evt.data;
+      
+      await User.create({
+          _id: id,
+          name: `${first_name} ${last_name}`,
+          email: email_addresses[0].email_address,
+          image: image_url,
+          resume: ''
+      });
+  }
+
     // Getting data from request body
     const { data, type } = req.body;
 

@@ -106,3 +106,29 @@ export const updateUserResume = async (req,res) => {
         res.json({ success:false, message:error.message })
     }
 }
+
+// Add User Creation endpoint to recheck
+export const createUser = async (req, res) => {
+    const { userId, name, email, image } = req.body;
+
+    try {
+        const existingUser = await User.findById(userId);
+        if (existingUser) {
+            return res.json({ success: true, user: existingUser });
+        }
+
+        const newUser = new User({
+            _id: userId,
+            name,
+            email,
+            image,
+            resume: ""
+        });
+
+        await newUser.save();
+        res.json({ success: true, user: newUser });
+        
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
