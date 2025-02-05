@@ -1,4 +1,5 @@
 import Job from "../models/job.js"
+import mongoose from "mongoose";
 
 
 //  get all jobs
@@ -16,30 +17,55 @@ export const getJobs = async (req,res) => {
 }
 
 // get a single job by id
-export const getJobById = async (req,res) => {
-    try {
+
+// export const getJobById = async (req,res) => {
+//     try {
         
-        const {id} = req.params
+//         const {id} = req.params
 
-        const job = await Job.findById(id)
-        .populate({
-            path:'companyId',
-            select: '-password'
-        })
+//         const job = await Job.findById(id)
+//         .populate({
+//             path:'companyId',
+//             select: '-password'
+//         })
 
-        if (!job) {
-            return res.json({
-                success:false,
-                message: 'Job not found'
-            })
+//         if (!job) {
+//             return res.json({
+//                 success:false,
+//                 message: 'Job not found'
+//             })
+//         }
+
+//         res.json({
+//             success:true,
+//             job
+//         })
+
+//     } catch (error) {
+//         res.json({success:false, message:error.message})
+//     }
+// }
+
+// exp
+
+export const getJobById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if ID is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid Job ID" });
         }
 
-        res.json({
-            success:true,
-            job
-        })
+        const job = await Job.findById(id).populate({ path: "companyId", select: "-password" });
+
+        if (!job) {
+            return res.status(404).json({ success: false, message: "Job not found" });
+        }
+
+        res.json({ success: true, job });
 
     } catch (error) {
-        res.json({success:false, message:error.message})
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
