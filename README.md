@@ -58,3 +58,13 @@ cd ../client
 npm install
 
 # 4. Add your .env files
+
+#5.Run the app
+ # Backend (in the terminal)
+cd server
+nodemon server.js
+
+# Frontend (in new terminal)
+cd client
+npm run dev
+
