@@ -3,7 +3,6 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { useAuth, useUser } from "@clerk/clerk-react";
 
-
 // Create the Context
 export const AppContext = createContext();
 
@@ -12,35 +11,56 @@ export const AppContextProvider = (props) => {
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
-    const {user} = useUser()
-    const {getToken}= useAuth()
+    const { user, isLoaded } = useUser()
+    const { getToken, sessionId } = useAuth()
 
-    const [searchFilter,setSearchFilter]= useState({
-        title:'',
-        location:'',
+    const [searchFilter, setSearchFilter] = useState({
+        title: '',
+        location: '',
     })
 
-    const [isSearched,setIsSearched]= useState(false)
+    const [isSearched, setIsSearched] = useState(false)
 
-    const[jobs,setJobs]= useState([])
+    const [jobs, setJobs] = useState([])
 
-    const[showRecruiterLogin,setShowRecruiterLogin]= useState(false)
+    const [showRecruiterLogin, setShowRecruiterLogin] = useState(false)
 
     const [companyToken, setCompanyToken] = useState(null)
     const [companyData, setCompanyData] = useState(null)
 
-    const[userData, setUserData] = useState(null)
-    const[userApplications, setUserApplications] = useState([])
+    const [userData, setUserData] = useState(null)
+    const [userApplications, setUserApplications] = useState([])
+    const [isLoadingUserData, setIsLoadingUserData] = useState(false)
+    const [authError, setAuthError] = useState(false); // ✅ ADD THIS
+
+
+    // Helper function to create authenticated axios instance
+    const createAuthenticatedRequest = async () => {
+        const token = await getToken();
+
+        if (!token) {
+            throw new Error("Auth token is not available yet");
+        }
+
+        return axios.create({
+            baseURL: backendUrl,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            withCredentials: true,
+        });
+
+    };
 
     //Function to fetch job data
-    const fetchJobs= async()=>{
+    const fetchJobs = async () => {
         try {
-
-            const{data} = await axios.get(backendUrl+ '/api/jobs')
+            const { data } = await axios.get(backendUrl + '/api/jobs')
 
             if (data.success) {
                 setJobs(data.jobs)
-                console.log(data.jobs)
+                // console.log(data.jobs)
             } else {
                 toast.error(data.message)
             }
@@ -48,19 +68,17 @@ export const AppContextProvider = (props) => {
         } catch (error) {
             toast.error(error.message)
         }
-        // setJobs(jobsData)
     }
 
     // Function to fetch Company Data
     const fetchCompanyData = async () => {
         try {
-            
-            const{data} = await axios.get(backendUrl + '/api/company/company', {headers:{token:companyToken}})
+            const { data } = await axios.get(backendUrl + '/api/company/company', { headers: { token: companyToken } })
 
             if (data.success) {
                 setCompanyData(data.company)
-                console.log(data)
-            } else{
+                // console.log(data)
+            } else {
                 toast.error(data.message)
             }
 
@@ -71,82 +89,117 @@ export const AppContextProvider = (props) => {
 
     // Function to fetch user data
     const fetchUserData = async () => {
-        try {
-            // Get token for authentication
-            const token = await getToken();
-            console.log("Auth token:", token); // Log the token
+        console.log('=== fetchUserData called ===')
+        console.log('User:', user)
+        console.log('isLoaded:', isLoaded)
+        console.log('backendUrl:', backendUrl)
 
-            if (!token) {
-                throw new Error("Failed to fetch authentication token.");
-            }
+        if (!user || !isLoaded) {
+            console.log('User not loaded yet or not available')
+            return
+        }
+
+        if (isLoadingUserData) {
+            console.log('Already loading user data')
+            return
+        }
+
+        try {
+            setIsLoadingUserData(true)
+            console.log('Getting authenticated request...')
+
+            const authAxios = await createAuthenticatedRequest();
+
+            console.log('Making request to: /api/users/user')
 
             // Fetch user data
-            const { data } = await axios.get(`${backendUrl}/api/users/user`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            console.log("User data response:", data); // Log the user data response
+            const { data } = await authAxios.get('/api/users/user');
+
+            console.log('API Response:', data)
 
             if (data.success) {
-                setUserData(data.user); // If user is found, set user data
+                setUserData(data.user);
+                console.log('User data set successfully:', data.user)
             } else if (data.message === "User Not Found") {
-                // Get user info from Clerk
-                const { user } = useUser(); // Ensure useUser() is properly imported and called
-                console.log("Clerk user object:", user); // Log the Clerk user object
+                console.log('User not found, creating new user...')
+                console.log('User object from Clerk:', {
+                    id: user.id,
+                    fullName: user.fullName,
+                    email: user.primaryEmailAddress?.emailAddress,
+                    imageUrl: user.imageUrl
+                })
 
-                if (!user) {
-                    throw new Error("Clerk user object is missing.");
-                }
+                // Create user in backend
+                const createResponse = await authAxios.post('/api/users/create', {
+                    userId: user.id,
+                    name: user.fullName,
+                    email: user.primaryEmailAddress?.emailAddress,
+                    image: user.imageUrl,
+                });
 
-                // Create the user in the backend
-                const createResponse = await axios.post(
-                    `${backendUrl}/api/users/create`,
-                    {
-                        userId: user.id,
-                        name: user.fullName,
-                        email: user.primaryEmailAddress?.emailAddress,
-                        image: user.imageUrl,
-                    },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                console.log("User creation response:", createResponse.data); // Log the user creation response
+                console.log('Create user response:', createResponse.data)
 
                 if (createResponse.data.success) {
-                    setUserData(createResponse.data.user); // Set user data after creation
+                    setUserData(createResponse.data.user);
+                    console.log('User created successfully:', createResponse.data.user)
                     toast.success("User created successfully!");
                 } else {
-                    toast.error(createResponse.data.message); // Handle backend creation failure
+                    console.error('Failed to create user:', createResponse.data.message)
+                    toast.error(createResponse.data.message);
                 }
             } else {
-                // Handle other backend errors
+                console.error('API returned error:', data.message)
                 toast.error(data.message);
             }
         } catch (error) {
-            // Handle all other errors
-            toast.error(error.message || "An unexpected error occurred.");
+            console.error('=== fetchUserData Error ===')
+            console.error('Error object:', error)
+            console.error('Error message:', error.message)
+            console.error('Error response:', error.response?.data)
+            console.error('Error status:', error.response?.status)
+            console.error('Error config:', error.config)
+
+            if (error.response?.status === 401) {
+                setAuthError(true); // ✅ prevent infinite retry
+                toast.error("Authentication failed. Please try logging in again.");
+            } else if (error.response?.status === 404) {
+                toast.error("User service not found. Please check backend connection.");
+            } else if (error.response?.status === 500) {
+                toast.error("Server error. Please try again later.");
+            } else if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
+                toast.error("Cannot connect to server. Please check if the backend is running.");
+            } else {
+                toast.error(error.response?.data?.message || error.message || "An unexpected error occurred.");
+            }
+        } finally {
+            setIsLoadingUserData(false)
         }
     };
-    
+
     //Function to fetch user's applied application data
     const fetchUserApplications = async () => {
+        if (!user || !isLoaded) {
+            return
+        }
+
         try {
+            const authAxios = await createAuthenticatedRequest();
 
-            const token = await getToken()
+            const { data } = await authAxios.get('/api/users/applications')
 
-            const {data} = await axios.get(backendUrl+ '/api/users/applications',
-                {headers:{Authorization: `Bearer ${token}`}}
-            )
             if (data.success) {
                 setUserApplications(data.applications)
-            }else{
+            } else {
                 toast.error(data.message)
             }
 
         } catch (error) {
-            toast.error(error.message)
+            console.error('Error fetching user applications:', error)
+            toast.error(error.response?.data?.message || error.message)
         }
-    } 
+    }
 
-    useEffect(()=>{
+    useEffect(() => {
         fetchJobs()
 
         const storedCompanyToken = localStorage.getItem('companyToken')
@@ -155,40 +208,63 @@ export const AppContextProvider = (props) => {
             setCompanyToken(storedCompanyToken)
         }
 
-    },[])
+    }, [])
 
-    useEffect(()=>{
+    useEffect(() => {
         if (companyToken) {
             fetchCompanyData()
         }
-    },[companyToken])
+    }, [companyToken])
 
-    useEffect(()=>{
-        if (user) {
+    // Fetch user data when ready and not already loading
+    useEffect(() => {
+        // console.log('=== useEffect for user data ===')
+        // console.log('user:', user)
+        // console.log('isLoaded:', isLoaded)
+        // console.log('userData:', userData)
+        // console.log('isLoadingUserData:', isLoadingUserData)
+
+        if (user && isLoaded && !userData && !isLoadingUserData && !authError) {
+            // console.log('Conditions met, calling fetchUserData...')
             fetchUserData()
+        }
+    }, [user, isLoaded, userData, isLoadingUserData, authError])
+
+    // Fetch applications after userData is loaded
+    useEffect(() => {
+        if (userData) {
             fetchUserApplications()
         }
-    },[user])
+    }, [userData])
 
-    // Define your context value
+    // Debug environment variables on first load
+    useEffect(() => {
+        // console.log('=== Environment Check ===')
+        // console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL)
+        // console.log('VITE_CLERK_PUBLISHABLE_KEY:', import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ? 'Present' : 'Missing')
+        // console.log('Session ID:', sessionId)
+    }, [])
+
+    // Final context value and return
     const value = {
-        setSearchFilter,searchFilter,
+        setSearchFilter, searchFilter,
         isSearched, setIsSearched,
-        jobs,setJobs,
+        jobs, setJobs,
         showRecruiterLogin, setShowRecruiterLogin,
-        companyToken,setCompanyToken,
-        companyData,setCompanyData,
+        companyToken, setCompanyToken,
+        companyData, setCompanyData,
         backendUrl,
-        userData,setUserData,
+        userData, setUserData,
         userApplications, setUserApplications,
         fetchUserData,
-        fetchUserApplications
+        fetchUserApplications,
+        isLoadingUserData,
+        createAuthenticatedRequest
     };
 
     return (
-        // Use AppContext.Provider here
         <AppContext.Provider value={value}>
             {props.children}
         </AppContext.Provider>
-    );
-};
+    )
+}

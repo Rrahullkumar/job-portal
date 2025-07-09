@@ -4,31 +4,26 @@ import User from "../models/User.js";
 import { v2 as cloudinary } from 'cloudinary';
 
 // Get user data
+// Updated getUserData function
 export const getUserData = async (req, res) => {
-    console.log("Clerk auth data:", req.auth);
-
-    const userId = req.auth.userId;
-
-    if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-
     try {
-        let user = await User.findById(userId);
+        // Clerk session verification
+        if (!req.auth?.userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // Find user using Clerk's userId
+        let user = await User.findOne({ clerkUserId: req.auth.userId });
 
         if (!user) {
-            console.log(`User not found in DB: ${userId}. Creating user...`);
-
             // Create user with Clerk data
             user = await User.create({
-                _id: userId,
-                name: `${req.auth.firstName} ${req.auth.lastName || ""}`,
-                email: req.auth.primaryEmailAddress || "unknown@example.com",
-                image: req.auth.imageUrl || "default-image-url",
-                resume: "", // Optional
+                clerkUserId: req.auth.userId,
+                name: req.auth.user?.fullName || "Anonymous",
+                email: req.auth.user?.primaryEmailAddress || "no-email@example.com",
+                image: req.auth.user?.imageUrl || "/default-avatar.png",
+                resume: ""
             });
-
-            console.log("User created successfully:", user);
         }
 
         res.json({ success: true, user });
@@ -47,18 +42,19 @@ export const createUser = async (req, res) => {
     }
 
     try {
-        const existingUser = await User.findById(userId);
+        const existingUser = await User.findOne({ clerkUserId: userId });
         if (existingUser) {
             return res.status(409).json({ success: false, message: 'User already exists' });
         }
 
         const newUser = new User({
-            _id: userId,
-            name: name || "New User",
+            clerkUserId: userId, // ✅ this is your unique user field
+            name,
             email,
-            image: image || "/default-avatar.png",
+            image,
             resume: ""
         });
+
 
         await newUser.save();
         res.status(201).json({ success: true, user: newUser });
