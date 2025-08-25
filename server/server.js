@@ -10,6 +10,7 @@ import jobRoutes from './routes/jobRoutes.js'
 import userRoutes from './routes/userRoutes.js'
 import { clerkMiddleware } from '@clerk/express'
 import { handleClerkWebhook } from './controllers/webhooks.js'
+import handler from './routes/healthRoute.js'
 
 const app = express()
 
@@ -43,10 +44,9 @@ app.use('/api/company', companyRoutes)
 app.use('/api/jobs', jobRoutes)
 app.use('/api/users', userRoutes)
 
-// testing for internshalah application (/health)
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
+// to delete later
+app.get('/health',handler)
+
 
 // Error handling
 Sentry.setupExpressErrorHandler(app)
