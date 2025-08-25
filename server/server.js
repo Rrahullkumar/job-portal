@@ -43,6 +43,11 @@ app.use('/api/company', companyRoutes)
 app.use('/api/jobs', jobRoutes)
 app.use('/api/users', userRoutes)
 
+// testing for internshalah application (/health)
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 // Error handling
 Sentry.setupExpressErrorHandler(app)
 
