@@ -47,7 +47,6 @@ app.use('/api/users', userRoutes)
 // to delete later
 app.get('/health',handler)
 
-
 // Error handling
 Sentry.setupExpressErrorHandler(app)
 
