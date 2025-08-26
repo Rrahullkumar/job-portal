@@ -14,6 +14,7 @@ import handler from './routes/healthRoute.js'
 
 const app = express()
 
+
 // Improved CORS configuration
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
